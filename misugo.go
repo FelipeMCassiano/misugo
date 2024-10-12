@@ -5,12 +5,11 @@ import (
 	"net/http"
 	"strings"
 	"sync"
-
-	ContextRequest "github.com/FelipeMCassiano/misugo/contextRequest"
 )
 
 type MisugoApp struct {
 	server *http.ServeMux
+	port   string
 }
 
 func NewApp() *MisugoApp {
@@ -19,12 +18,21 @@ func NewApp() *MisugoApp {
 	}
 }
 
-type MisugoHandler func(*ContextRequest.ContextRequest)
+type MisugoHandler func(*ContextRequest)
 
 var contextPool = sync.Pool{
 	New: func() interface{} {
-		return &ContextRequest.ContextRequest{}
+		return &ContextRequest{}
 	},
+}
+
+func (m *MisugoApp) Serve() error {
+	server := http.Server{
+		Addr:    fmt.Sprintf(":%s", m.port),
+		Handler: m.server,
+	}
+
+	return server.ListenAndServe()
 }
 
 func (m *MisugoApp) Get(pattern string, handler MisugoHandler) {
@@ -34,9 +42,9 @@ func (m *MisugoApp) Get(pattern string, handler MisugoHandler) {
 	}
 
 	m.server.HandleFunc(fmt.Sprintf("GET %s", pattern), func(w http.ResponseWriter, r *http.Request) {
-		ctx := contextPool.Get().(*ContextRequest.ContextRequest)
-		ctx.W = w
-		ctx.R = r
+		ctx := contextPool.Get().(*ContextRequest)
+		ctx.w = w
+		ctx.r = r
 		defer contextPool.Put(ctx)
 
 		handler(ctx)
@@ -50,9 +58,9 @@ func (m *MisugoApp) Post(pattern string, handler MisugoHandler) {
 	}
 
 	m.server.HandleFunc(fmt.Sprintf("POST %s", pattern), func(w http.ResponseWriter, r *http.Request) {
-		ctx := contextPool.Get().(*ContextRequest.ContextRequest)
-		ctx.W = w
-		ctx.R = r
+		ctx := contextPool.Get().(*ContextRequest)
+		ctx.w = w
+		ctx.r = r
 		defer contextPool.Put(ctx)
 
 		handler(ctx)
@@ -65,9 +73,9 @@ func (m *MisugoApp) Delete(pattern string, handler MisugoHandler) {
 	}
 
 	m.server.HandleFunc(fmt.Sprintf("DELETE %s", pattern), func(w http.ResponseWriter, r *http.Request) {
-		ctx := contextPool.Get().(*ContextRequest.ContextRequest)
-		ctx.W = w
-		ctx.R = r
+		ctx := contextPool.Get().(*ContextRequest)
+		ctx.w = w
+		ctx.r = r
 		defer contextPool.Put(ctx)
 
 		handler(ctx)
@@ -80,24 +88,24 @@ func (m *MisugoApp) Put(pattern string, handler MisugoHandler) {
 	}
 
 	m.server.HandleFunc(fmt.Sprintf("PUT %s", pattern), func(w http.ResponseWriter, r *http.Request) {
-		ctx := contextPool.Get().(*ContextRequest.ContextRequest)
-		ctx.W = w
-		ctx.R = r
+		ctx := contextPool.Get().(*ContextRequest)
+		ctx.w = w
+		ctx.r = r
 		defer contextPool.Put(ctx)
 
 		handler(ctx)
 	})
 }
 
-func (m *MisugoApp) Patch(pattern string, handler MisugoHandler) {
+func (m *MisugoApp) Patch(pattern string, handler MisugoHandler, middleware ...http.Handler) {
 	if !strings.HasPrefix(pattern, "/") {
 		pattern = "/" + pattern
 	}
 
 	m.server.HandleFunc(fmt.Sprintf("PATCH %s", pattern), func(w http.ResponseWriter, r *http.Request) {
-		ctx := contextPool.Get().(*ContextRequest.ContextRequest)
-		ctx.W = w
-		ctx.R = r
+		ctx := contextPool.Get().(*ContextRequest)
+		ctx.w = w
+		ctx.r = r
 		defer contextPool.Put(ctx)
 
 		handler(ctx)

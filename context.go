@@ -1,4 +1,4 @@
-package ContextRequest
+package misugo
 
 import (
 	"errors"
@@ -9,8 +9,8 @@ import (
 )
 
 type ContextRequest struct {
-	W http.ResponseWriter
-	R *http.Request
+	w http.ResponseWriter
+	r *http.Request
 }
 
 type Cookie struct {
@@ -43,7 +43,7 @@ func (ctx *ContextRequest) ParseBody(v interface{}) error {
 		return NotAPointerError
 	}
 
-	if err := sonic.ConfigDefault.NewDecoder(ctx.R.Body).Decode(v); err != nil {
+	if err := sonic.ConfigDefault.NewDecoder(ctx.r.Body).Decode(v); err != nil {
 		return err
 	}
 
@@ -51,10 +51,10 @@ func (ctx *ContextRequest) ParseBody(v interface{}) error {
 }
 
 func (ctx *ContextRequest) JSON(status int, v interface{}) error {
-	ctx.W.WriteHeader(status)
-	return sonic.ConfigDefault.NewEncoder(ctx.W).Encode(v)
+	ctx.w.WriteHeader(status)
+	return sonic.ConfigDefault.NewEncoder(ctx.w).Encode(v)
 }
 
 func (ctx *ContextRequest) Cookie(cookie *Cookie) {
-	http.SetCookie(ctx.W, cookie.ToHTTPCookie())
+	http.SetCookie(ctx.w, cookie.ToHTTPCookie())
 }
