@@ -9,7 +9,6 @@ import (
 
 type MisugoApp struct {
 	server *http.ServeMux
-	port   string
 }
 type MisugoHandler struct {
 	handler http.Handler
@@ -35,9 +34,9 @@ var contextPool = sync.Pool{
 	},
 }
 
-func (m *MisugoApp) Serve() error {
+func (m *MisugoApp) Serve(port string) error {
 	server := http.Server{
-		Addr:    fmt.Sprintf(":%s", m.port),
+		Addr:    fmt.Sprintf(":%s", port),
 		Handler: m.server,
 	}
 
