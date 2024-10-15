@@ -147,7 +147,7 @@ func (m *MisugoApp) Put(pattern string, handler func(*ContextRequest) error, mid
 		}
 	}
 
-	m.server.HandleFunc(fmt.Sprintf("DELETE %s", pattern), finalHandler.handler.ServeHTTP)
+	m.server.HandleFunc(fmt.Sprintf("PUT %s", pattern), finalHandler.handler.ServeHTTP)
 }
 
 func (m *MisugoApp) Patch(pattern string, handler func(*ContextRequest) error, middlewares ...func(*MisugoHandler) *MisugoHandler) {
@@ -173,5 +173,5 @@ func (m *MisugoApp) Patch(pattern string, handler func(*ContextRequest) error, m
 		}
 	}
 
-	m.server.HandleFunc(fmt.Sprintf("DELETE %s", pattern), finalHandler.handler.ServeHTTP)
+	m.server.HandleFunc(fmt.Sprintf("PATCH %s", pattern), finalHandler.handler.ServeHTTP)
 }
