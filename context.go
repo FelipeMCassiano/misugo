@@ -9,8 +9,10 @@ import (
 )
 
 type ContextRequest struct {
-	w http.ResponseWriter
-	r *http.Request
+	w       http.ResponseWriter
+	r       *http.Request
+	encoder sonic.Encoder
+	decoder sonic.Decoder
 }
 
 type Cookie struct {
@@ -43,16 +45,12 @@ func (ctx *ContextRequest) ParseBody(v interface{}) error {
 		return NotAPointerError
 	}
 
-	if err := sonic.ConfigDefault.NewDecoder(ctx.r.Body).Decode(v); err != nil {
-		return err
-	}
-
-	return nil
+	return ctx.decoder.Decode(v)
 }
 
 func (ctx *ContextRequest) JSON(status int, v interface{}) error {
 	ctx.w.WriteHeader(status)
-	return sonic.ConfigDefault.NewEncoder(ctx.w).Encode(v)
+	return ctx.encoder.Encode(v)
 }
 
 func (ctx *ContextRequest) Cookie(cookie *Cookie) {

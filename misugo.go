@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+
+	"github.com/bytedance/sonic"
 )
 
 type MisugoApp struct {
@@ -43,17 +45,26 @@ func (m *MisugoApp) Serve(port string) error {
 	return server.ListenAndServe()
 }
 
+func createContextRequest(w http.ResponseWriter, r *http.Request) *ContextRequest {
+	ctx := contextPool.Get().(*ContextRequest)
+
+	ctx.w = w
+	ctx.r = r
+	ctx.decoder = sonic.ConfigStd.NewDecoder(r.Body)
+	ctx.encoder = sonic.ConfigStd.NewEncoder(w)
+
+	return ctx
+}
+
 func (m *MisugoApp) Get(pattern string, handler func(*ContextRequest) error, middlewares ...func(*MisugoHandler) *MisugoHandler) {
 	// Ensure the pattern starts with "/"
 	if !strings.HasPrefix(pattern, "/") {
 		pattern = "/" + pattern
 	}
 
-	finalHandler := NewMisugoHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ctx := contextPool.Get().(*ContextRequest)
+	newHandler := NewMisugoHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		ctx.w = w
-		ctx.r = r
+		ctx := createContextRequest(w, r)
 		defer contextPool.Put(ctx)
 
 		if err := handler(ctx); err != nil {
@@ -62,25 +73,20 @@ func (m *MisugoApp) Get(pattern string, handler func(*ContextRequest) error, mid
 		}
 	}))
 
-	if len(middlewares) != 0 {
-		for i := len(middlewares) - 1; i >= 0; i-- {
-			finalHandler = middlewares[i](finalHandler)
-		}
-	}
+	finalHandler := handleMiddlewares(newHandler, middlewares)
 
 	m.server.HandleFunc(fmt.Sprintf("GET %s", pattern), finalHandler.handler.ServeHTTP)
 }
 
 func (m *MisugoApp) Post(pattern string, handler func(*ContextRequest) error, middlewares ...func(*MisugoHandler) *MisugoHandler) {
-	// cannot have a pattern without /
 	if !strings.HasPrefix(pattern, "/") {
 		pattern = "/" + pattern
 	}
-	finalHandler := NewMisugoHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ctx := contextPool.Get().(*ContextRequest)
+	newHandler := NewMisugoHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		ctx.w = w
-		ctx.r = r
+
+		ctx := createContextRequest(w, r)
+
 		defer contextPool.Put(ctx)
 
 		if err := handler(ctx); err != nil {
@@ -89,11 +95,7 @@ func (m *MisugoApp) Post(pattern string, handler func(*ContextRequest) error, mi
 		}
 	}))
 
-	if len(middlewares) != 0 {
-		for i := len(middlewares) - 1; i >= 0; i-- {
-			finalHandler = middlewares[i](finalHandler)
-		}
-	}
+	finalHandler := handleMiddlewares(newHandler, middlewares)
 
 	m.server.HandleFunc(fmt.Sprintf("POST %s", pattern), finalHandler.handler.ServeHTTP)
 }
@@ -102,11 +104,9 @@ func (m *MisugoApp) Delete(pattern string, handler func(*ContextRequest) error, 
 	if !strings.HasPrefix(pattern, "/") {
 		pattern = "/" + pattern
 	}
-	finalHandler := NewMisugoHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ctx := contextPool.Get().(*ContextRequest)
+	newHandler := NewMisugoHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		ctx.w = w
-		ctx.r = r
+		ctx := createContextRequest(w, r)
 		defer contextPool.Put(ctx)
 
 		if err := handler(ctx); err != nil {
@@ -115,11 +115,7 @@ func (m *MisugoApp) Delete(pattern string, handler func(*ContextRequest) error, 
 		}
 	}))
 
-	if len(middlewares) != 0 {
-		for i := len(middlewares) - 1; i >= 0; i-- {
-			finalHandler = middlewares[i](finalHandler)
-		}
-	}
+	finalHandler := handleMiddlewares(newHandler, middlewares)
 
 	m.server.HandleFunc(fmt.Sprintf("DELETE %s", pattern), finalHandler.handler.ServeHTTP)
 }
@@ -128,11 +124,9 @@ func (m *MisugoApp) Put(pattern string, handler func(*ContextRequest) error, mid
 	if !strings.HasPrefix(pattern, "/") {
 		pattern = "/" + pattern
 	}
-	finalHandler := NewMisugoHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ctx := contextPool.Get().(*ContextRequest)
+	newHandler := NewMisugoHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		ctx.w = w
-		ctx.r = r
+		ctx := createContextRequest(w, r)
 		defer contextPool.Put(ctx)
 
 		if err := handler(ctx); err != nil {
@@ -141,11 +135,7 @@ func (m *MisugoApp) Put(pattern string, handler func(*ContextRequest) error, mid
 		}
 	}))
 
-	if len(middlewares) != 0 {
-		for i := len(middlewares) - 1; i >= 0; i-- {
-			finalHandler = middlewares[i](finalHandler)
-		}
-	}
+	finalHandler := handleMiddlewares(newHandler, middlewares)
 
 	m.server.HandleFunc(fmt.Sprintf("PUT %s", pattern), finalHandler.handler.ServeHTTP)
 }
@@ -154,11 +144,10 @@ func (m *MisugoApp) Patch(pattern string, handler func(*ContextRequest) error, m
 	if !strings.HasPrefix(pattern, "/") {
 		pattern = "/" + pattern
 	}
-	finalHandler := NewMisugoHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ctx := contextPool.Get().(*ContextRequest)
+	newHandler := NewMisugoHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		ctx.w = w
-		ctx.r = r
+
+		ctx := createContextRequest(w, r)
 		defer contextPool.Put(ctx)
 
 		if err := handler(ctx); err != nil {
@@ -166,12 +155,20 @@ func (m *MisugoApp) Patch(pattern string, handler func(*ContextRequest) error, m
 			return
 		}
 	}))
-
-	if len(middlewares) != 0 {
-		for i := len(middlewares) - 1; i >= 0; i-- {
-			finalHandler = middlewares[i](finalHandler)
-		}
-	}
+	finalHandler := handleMiddlewares(newHandler, middlewares)
 
 	m.server.HandleFunc(fmt.Sprintf("PATCH %s", pattern), finalHandler.handler.ServeHTTP)
+}
+
+func handleMiddlewares(handler *MisugoHandler, middlewares []func(*MisugoHandler) *MisugoHandler) *MisugoHandler {
+	if len(middlewares) != 0 {
+		newHandler := handler
+		for i := len(middlewares) - 1; i >= 0; i-- {
+			newHandler = middlewares[i](newHandler)
+		}
+
+		return newHandler
+	}
+
+	return handler
 }
